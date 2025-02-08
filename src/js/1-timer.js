@@ -1,7 +1,8 @@
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
 
-const datePicker = document.querySelector('#datetime-picker');
 const refs = {
   datePicker: document.querySelector('#datetime-picker'),
   startBtn: document.querySelector('[data-start]'),
@@ -14,6 +15,7 @@ const refs = {
 };
 
 let userSelectedDate = null;
+let timerId = null;
 refs.startBtn.disabled = true;
 
 flatpickr(refs.datePicker, {
@@ -24,7 +26,11 @@ flatpickr(refs.datePicker, {
   onClose(selectedDates) {
     const selectedDate = selectedDates[0];
     if (selectedDate <= new Date()) {
-      alert('Please choose a date in the future');
+      iziToast.error({
+        title: 'Error',
+        message: 'Please choose a date in the future',
+        position: 'topRight',
+      });
       refs.startBtn.disabled = true;
     } else {
       userSelectedDate = selectedDate;
@@ -34,28 +40,29 @@ flatpickr(refs.datePicker, {
 });
 
 const timer = {
-  intervalId: null,
   start() {
     if (!userSelectedDate) return;
 
-    this.intervalId = setInterval(() => this.tick(), 1000);
+    if (timerId) clearInterval(timerId);
+
     refs.startBtn.disabled = true;
     refs.datePicker.disabled = true;
-  },
-  tick() {
-    const currentTime = Date.now();
-    const ms = userSelectedDate - currentTime;
 
-    if (ms <= 0) {
-      clearInterval(this.intervalId);
-      refs.datePicker.disabled = false;
-      refs.startBtn.disabled = true;
-      updateClockFace({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      return;
-    }
+    timerId = setInterval(() => {
+      const currentTime = Date.now();
+      const ms = userSelectedDate - currentTime;
 
-    const time = convertMs(ms);
-    updateClockFace(time);
+      if (ms <= 0) {
+        clearInterval(timerId);
+        refs.datePicker.disabled = false;
+        refs.startBtn.disabled = true;
+        updateClockFace({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      const time = convertMs(ms);
+      updateClockFace(time);
+    }, 1000);
   },
 };
 
@@ -67,12 +74,12 @@ function convertMs(ms) {
   const hour = minute * 60;
   const day = hour * 24;
 
-  const days = Math.floor(ms / day);
-  const hours = Math.floor((ms % day) / hour);
-  const minutes = Math.floor(((ms % day) % hour) / minute);
-  const seconds = Math.floor((((ms % day) % hour) % minute) / second);
-
-  return { days, hours, minutes, seconds };
+  return {
+    days: Math.floor(ms / day),
+    hours: Math.floor((ms % day) / hour),
+    minutes: Math.floor(((ms % day) % hour) / minute),
+    seconds: Math.floor((((ms % day) % hour) % minute) / second),
+  };
 }
 
 function addLeadingZero(value) {
@@ -80,7 +87,7 @@ function addLeadingZero(value) {
 }
 
 function updateClockFace({ days, hours, minutes, seconds }) {
-  refs.clockFace.days.textContent = days;
+  refs.clockFace.days.textContent = addLeadingZero(days);
   refs.clockFace.hours.textContent = addLeadingZero(hours);
   refs.clockFace.minutes.textContent = addLeadingZero(minutes);
   refs.clockFace.seconds.textContent = addLeadingZero(seconds);
